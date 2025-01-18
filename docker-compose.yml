@@ -1,0 +1,54 @@
+
+services:
+  broker:
+    image: redis:6.0
+    networks:
+      internal:
+    restart: unless-stopped
+
+  db:
+    image: postgres:13
+    networks:
+      internal:
+    restart: unless-stopped
+    volumes:
+      - /opt/docker-prod/paperless/pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: paperless
+      POSTGRES_USER: paperless
+      POSTGRES_PASSWORD: paperless
+
+  webserver:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    networks:
+      internal:
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    depends_on:
+      - db
+      - broker
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - /opt/docker-prod/paperless/data:/usr/src/paperless/data
+      - /opt/docker-prod/paperless/media:/usr/src/paperless/media
+   # env_file: docker-compose.env
+    environment:
+      PAPERLESS_REDIS: redis://paperless-broker-1:6379
+      PAPERLESS_DBHOST: paperless-db-1
+      PAPERLESS_URL: http://localhost
+      PAPERLESS_OCR_LANGUAGE: deu
+      PAPERLESS_TIME_ZONE: Europe/Berlin
+
+volumes:
+  data:
+  media:
+  pgdata:
+networks:
+  internal:
+    external: true
+    name: proxy_default
